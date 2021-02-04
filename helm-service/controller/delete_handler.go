@@ -31,7 +31,7 @@ func (h *DeleteHandler) HandleEvent(ce cloudevents.Event) {
 	err := ce.DataAs(&serviceDeleteEvent)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal data: %v", err)
-		h.handleError(ce.ID(), err, keptnv2.ServiceDeleteTaskName, h.getFinishedEventDataForError(serviceDeleteEvent.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(serviceDeleteEvent.EventData, err))
 		return
 	}
 
@@ -41,7 +41,7 @@ func (h *DeleteHandler) HandleEvent(ce cloudevents.Event) {
 	stages, err := h.stagesHandler.GetAllStages(serviceDeleteEvent.Project)
 	if err != nil {
 		err = fmt.Errorf("error when getting all stages: %v", err)
-		h.handleError(ce.ID(), err, keptnv2.ServiceDeleteTaskName, h.getFinishedEventDataForError(serviceDeleteEvent.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(serviceDeleteEvent.EventData, err))
 		return
 	}
 
@@ -71,22 +71,22 @@ func (h *DeleteHandler) HandleEvent(ce cloudevents.Event) {
 	msg := fmt.Sprintf("Finished uninstalling service %s in project %s", serviceDeleteEvent.Service, serviceDeleteEvent.Project)
 	data := h.getFinishedEventData(serviceDeleteEvent.EventData, keptnv2.StatusSucceeded, keptnv2.ResultPass, msg)
 	if err := h.sendEvent(ce.ID(), keptnv2.GetFinishedEventType(keptnv2.ServiceDeleteTaskName), data); err != nil {
-		h.handleError(ce.ID(), err, keptnv2.ServiceDeleteTaskName, h.getFinishedEventDataForError(serviceDeleteEvent.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(serviceDeleteEvent.EventData, err))
 	}
 }
 
 func (h *DeleteHandler) getFinishedEventData(inEventData keptnv2.EventData, status keptnv2.StatusType, result keptnv2.ResultType,
-	message string) keptnv2.ServiceDeleteFinishedEventData {
+	message string) *keptnv2.ServiceDeleteFinishedEventData {
 
 	inEventData.Status = status
 	inEventData.Result = result
 	inEventData.Message = message
 
-	return keptnv2.ServiceDeleteFinishedEventData{
+	return &keptnv2.ServiceDeleteFinishedEventData{
 		EventData: inEventData,
 	}
 }
 
-func (h *DeleteHandler) getFinishedEventDataForError(inEventData keptnv2.EventData, err error) keptnv2.ServiceDeleteFinishedEventData {
+func (h *DeleteHandler) getFinishedEventDataForError(inEventData keptnv2.EventData, err error) *keptnv2.ServiceDeleteFinishedEventData {
 	return h.getFinishedEventData(inEventData, keptnv2.StatusErrored, keptnv2.ResultFailed, err.Error())
 }

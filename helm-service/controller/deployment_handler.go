@@ -40,22 +40,24 @@ func (h *DeploymentHandler) HandleEvent(ce cloudevents.Event) {
 	e := keptnv2.DeploymentTriggeredEventData{}
 	if err := ce.DataAs(&e); err != nil {
 		err = fmt.Errorf("failed to unmarshal data: %v", err)
-		h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	// Send deployment started event
 	h.getKeptnHandler().Logger.Info(fmt.Sprintf("Starting deployment for service %s in stage %s of project %s", e.Service, e.Stage, e.Project))
-	if err := h.sendEvent(ce.ID(), keptnv2.GetStartedEventType(keptnv2.DeploymentTaskName), h.getStartedEventData(e.EventData)); err != nil {
-		h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+
+	if _, err := h.getKeptnHandler().SendTaskStartedEvent(nil, "helm-service"); err != nil {
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	if e.Result == keptnv2.ResultFailed {
 		h.getKeptnHandler().Logger.Info(fmt.Sprintf("No deployment done for service %s in stage %s of project %s", e.Service, e.Stage, e.Project))
 		data := h.getFinishedEventDataForNoDeployment(e.EventData)
-		if err := h.sendEvent(ce.ID(), keptnv2.GetFinishedEventType(keptnv2.DeploymentTaskName), data); err != nil {
-			h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+
+		if _, err := h.getKeptnHandler().SendTaskFinishedEvent(data, "helm-service"); err != nil {
+			h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 			return
 		}
 		return
@@ -71,7 +73,7 @@ func (h *DeploymentHandler) HandleEvent(ce cloudevents.Event) {
 			false, valuesUpdater)
 		if err != nil {
 			err = fmt.Errorf("failed to update values: %v", err)
-			h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+			h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 			return
 		}
 	} else {
@@ -79,25 +81,25 @@ func (h *DeploymentHandler) HandleEvent(ce cloudevents.Event) {
 		userChart, gitVersion, err = h.getUserChart(e.EventData)
 		if err != nil {
 			err = fmt.Errorf("failed to load chart: %v", err)
-			h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+			h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 			return
 		}
 	}
 
 	deploymentStrategy, err := keptnevents.GetDeploymentStrategy(e.Deployment.DeploymentStrategy)
 	if err != nil {
-		h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	// Upgrade user chart
 	if err := h.upgradeChart(userChart, e.EventData, deploymentStrategy); err != nil {
-		h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	if err := h.upgradeGeneratedChart(deploymentStrategy, e); err != nil {
-		h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
@@ -105,11 +107,11 @@ func (h *DeploymentHandler) HandleEvent(ce cloudevents.Event) {
 	data, err := h.getFinishedEventDataForSuccess(e.EventData, gitVersion,
 		getDeploymentName(deploymentStrategy, false), deploymentStrategy)
 	if err != nil {
-		h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
-	if err := h.sendEvent(ce.ID(), keptnv2.GetFinishedEventType(keptnv2.DeploymentTaskName), data); err != nil {
-		h.handleError(ce.ID(), err, keptnv2.DeploymentTaskName, h.getFinishedEventDataForError(e.EventData, err))
+	if _, err := h.getKeptnHandler().SendTaskFinishedEvent(data, "helm-service"); err != nil {
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 	h.getKeptnHandler().Logger.Info(fmt.Sprintf("Deployment finished for service %s in stage %s of project %s", e.Service, e.Stage, e.Project))
@@ -235,22 +237,22 @@ func (h *DeploymentHandler) getFinishedEventDataForSuccess(inEventData keptnv2.E
 	}, nil
 }
 
-func (h *DeploymentHandler) getFinishedEventDataForError(eventData keptnv2.EventData, err error) keptnv2.DeploymentFinishedEventData {
+func (h *DeploymentHandler) getFinishedEventDataForError(eventData keptnv2.EventData, err error) *keptnv2.DeploymentFinishedEventData {
 
 	eventData.Status = keptnv2.StatusErrored
 	eventData.Result = keptnv2.ResultFailed
 	eventData.Message = err.Error()
-	return keptnv2.DeploymentFinishedEventData{
+	return &keptnv2.DeploymentFinishedEventData{
 		EventData: eventData,
 	}
 }
 
-func (h *DeploymentHandler) getFinishedEventDataForNoDeployment(eventData keptnv2.EventData) keptnv2.DeploymentFinishedEventData {
+func (h *DeploymentHandler) getFinishedEventDataForNoDeployment(eventData keptnv2.EventData) *keptnv2.DeploymentFinishedEventData {
 
 	eventData.Status = keptnv2.StatusSucceeded
 	eventData.Result = keptnv2.ResultFailed
 	eventData.Message = "No deployment has been executed"
-	return keptnv2.DeploymentFinishedEventData{
+	return &keptnv2.DeploymentFinishedEventData{
 		EventData: eventData,
 	}
 }

@@ -78,7 +78,7 @@ func (o *onboarder) HandleEvent(ce cloudevents.Event) {
 	e := &keptnv2.ServiceCreateFinishedEventData{}
 	if err := ce.DataAs(e); err != nil {
 		err = fmt.Errorf("failed to unmarshal data: %v", err)
-		o.handleError(ce.ID(), err, keptnv2.ServiceCreateTaskName, o.getFinishedEventDataForError(e.EventData, err))
+		o.handleError(err, o.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
@@ -91,34 +91,34 @@ func (o *onboarder) HandleEvent(ce cloudevents.Event) {
 	// Check if project exists
 	if _, err := o.projectHandler.GetProject(models.Project{ProjectName: e.Project}); err != nil {
 		err := fmt.Errorf("failed not retrieve project %s: %s", e.Project, *err.Message)
-		o.handleError(ce.ID(), err, keptnv2.ServiceCreateTaskName, o.getFinishedEventDataForError(e.EventData, err))
+		o.handleError(err, o.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	// Check service name
 	if err := o.checkAndSetServiceName(e); err != nil {
 		err := fmt.Errorf("invalid service name: %s", err.Error())
-		o.handleError(ce.ID(), err, keptnv2.ServiceCreateTaskName, o.getFinishedEventDataForError(e.EventData, err))
+		o.handleError(err, o.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	// Check stages
 	stages, err := o.getStages(e)
 	if err != nil {
-		o.handleError(ce.ID(), err, keptnv2.ServiceCreateTaskName, o.getFinishedEventDataForError(e.EventData, err))
+		o.handleError(err, o.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	// Initialize Namespace
 	if err := o.namespaceManager.InitNamespaces(e.Project, stages); err != nil {
-		o.handleError(ce.ID(), err, keptnv2.ServiceCreateTaskName, o.getFinishedEventDataForError(e.EventData, err))
+		o.handleError(err, o.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	// Onboard service in all namespaces
 	for _, stage := range stages {
 		if err := o.onboardService(stage, e); err != nil {
-			o.handleError(ce.ID(), err, keptnv2.ServiceCreateTaskName, o.getFinishedEventDataForError(e.EventData, err))
+			o.handleError(err, o.getFinishedEventDataForError(e.EventData, err))
 			return
 		}
 	}
@@ -127,7 +127,7 @@ func (o *onboarder) HandleEvent(ce cloudevents.Event) {
 	msg := fmt.Sprintf("Finished creating service %s in project %s", e.Service, e.Project)
 	data := o.getFinishedEventData(e.EventData, keptnv2.StatusSucceeded, keptnv2.ResultPass, msg)
 	if err := o.sendEvent(ce.ID(), keptnv2.GetFinishedEventType(keptnv2.ServiceCreateTaskName), data); err != nil {
-		o.handleError(ce.ID(), err, keptnv2.ServiceCreateTaskName, o.getFinishedEventDataForError(e.EventData, err))
+		o.handleError(err, o.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 }
@@ -281,17 +281,17 @@ func (o *onboarder) OnboardGeneratedChart(helmManifest string, event keptnv2.Eve
 }
 
 func (o *onboarder) getFinishedEventData(inEventData keptnv2.EventData, status keptnv2.StatusType, result keptnv2.ResultType,
-	message string) keptnv2.ServiceCreateFinishedEventData {
+	message string) *keptnv2.ServiceCreateFinishedEventData {
 
 	inEventData.Status = status
 	inEventData.Result = result
 	inEventData.Message = message
 
-	return keptnv2.ServiceCreateFinishedEventData{
+	return &keptnv2.ServiceCreateFinishedEventData{
 		EventData: inEventData,
 	}
 }
 
-func (o *onboarder) getFinishedEventDataForError(inEventData keptnv2.EventData, err error) keptnv2.ServiceCreateFinishedEventData {
+func (o *onboarder) getFinishedEventDataForError(inEventData keptnv2.EventData, err error) *keptnv2.ServiceCreateFinishedEventData {
 	return o.getFinishedEventData(inEventData, keptnv2.StatusErrored, keptnv2.ResultFailed, err.Error())
 }

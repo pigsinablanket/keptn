@@ -2,6 +2,7 @@ package controller
 
 import (
 	keptnevents "github.com/keptn/go-utils/pkg/lib"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	"github.com/keptn/keptn/helm-service/pkg/helm"
 	"helm.sh/helm/v3/pkg/chart"
@@ -16,7 +17,7 @@ type Handler interface {
 	getGeneratedChart(e keptnv2.EventData) (*chart.Chart, string, error)
 	getUserChart(e keptnv2.EventData) (*chart.Chart, string, error)
 	existsGeneratedChart(e keptnv2.EventData) (bool, error)
-	handleError(triggerID string, err error, taskName string, finishedEventData interface{})
+	handleError(err error, finishedEventData keptncommon.EventProperties)
 	sendEvent(triggerID, ceType string, data interface{}) error
 	upgradeChart(ch *chart.Chart, event keptnv2.EventData,
 		strategy keptnevents.DeploymentStrategy) error

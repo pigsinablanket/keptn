@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	keptnevents "github.com/keptn/go-utils/pkg/lib"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
@@ -81,7 +82,7 @@ func (h *MockedHandler) existsGeneratedChart(e keptnv2.EventData) (bool, error) 
 }
 
 // HandleError logs the error and sends a finished-event
-func (h *MockedHandler) handleError(triggerID string, err error, taskName string, finishedEventData interface{}) {
+func (h *MockedHandler) handleError(err error, finishedEventData keptncommon.EventProperties) {
 	fmt.Println("HandleError: " + err.Error())
 	h.handledErrorEvents = append(h.handledErrorEvents, finishedEventData)
 }

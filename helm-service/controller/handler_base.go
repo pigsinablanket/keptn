@@ -1,6 +1,7 @@
 package controller
 
 import (
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	"strings"
 
 	keptnevents "github.com/keptn/go-utils/pkg/lib"
@@ -59,9 +60,10 @@ func (h *HandlerBase) existsGeneratedChart(e keptnv2.EventData) (bool, error) {
 }
 
 // HandleError logs the error and sends a finished-event
-func (h *HandlerBase) handleError(triggerID string, err error, taskName string, finishedEventData interface{}) {
+func (h *HandlerBase) handleError(err error, finishedEventData keptncommon.EventProperties) {
 	h.keptnHandler.Logger.Error(err.Error())
-	if err := h.sendEvent(triggerID, keptnv2.GetFinishedEventType(taskName), finishedEventData); err != nil {
+
+	if _, err := h.getKeptnHandler().SendTaskFinishedEvent(finishedEventData, "helm-service"); err != nil {
 		h.keptnHandler.Logger.Error(err.Error())
 	}
 }

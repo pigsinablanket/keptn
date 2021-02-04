@@ -48,20 +48,20 @@ func (h *ReleaseHandler) HandleEvent(ce cloudevents.Event) {
 	e := keptnv2.ReleaseTriggeredEventData{}
 	if err := ce.DataAs(&e); err != nil {
 		err = fmt.Errorf("failed to unmarshal data: %v", err)
-		h.handleError(ce.ID(), err, keptnv2.ReleaseTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	// Send release started event
 	h.getKeptnHandler().Logger.Info(fmt.Sprintf("Starting release for service %s in stage %s of project %s", e.Service, e.Stage, e.Project))
 	if err := h.sendEvent(ce.ID(), keptnv2.GetStartedEventType(keptnv2.ReleaseTaskName), h.getStartedEventData(e.EventData)); err != nil {
-		h.handleError(ce.ID(), err, keptnv2.ReleaseTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
 	deploymentStrategy, err := keptnevents.GetDeploymentStrategy(e.Deployment.DeploymentStrategy)
 	if err != nil {
-		h.handleError(ce.ID(), err, keptnv2.ReleaseTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *ReleaseHandler) HandleEvent(ce cloudevents.Event) {
 				e.Service, e.Stage, e.Project))
 			gitVersion, err = h.promoteDeployment(e.EventData)
 			if err != nil {
-				h.handleError(ce.ID(), err, keptnv2.ReleaseTaskName, h.getFinishedEventDataForError(e.EventData, err))
+				h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 				return
 			}
 		} else {
@@ -82,7 +82,7 @@ func (h *ReleaseHandler) HandleEvent(ce cloudevents.Event) {
 				e.Service, e.Stage, e.Project))
 			gitVersion, err = h.rollbackDeployment(e.EventData)
 			if err != nil {
-				h.handleError(ce.ID(), err, keptnv2.ReleaseTaskName, h.getFinishedEventDataForError(e.EventData, err))
+				h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 				return
 			}
 		}
@@ -95,7 +95,7 @@ func (h *ReleaseHandler) HandleEvent(ce cloudevents.Event) {
 	// Send finished event
 	data := h.getFinishedEventData(e.EventData, keptnv2.StatusSucceeded, e.Result, "Finished release", gitVersion)
 	if err := h.sendEvent(ce.ID(), keptnv2.GetFinishedEventType(keptnv2.ReleaseTaskName), data); err != nil {
-		h.handleError(ce.ID(), err, keptnv2.ReleaseTaskName, h.getFinishedEventDataForError(e.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(e.EventData, err))
 		return
 	}
 	h.getKeptnHandler().Logger.Info(fmt.Sprintf("Finished release for service %s in stage %s and project %s", e.Service, e.Stage, e.Project))
@@ -209,18 +209,18 @@ func (h *ReleaseHandler) getStartedEventData(inEventData keptnv2.EventData) kept
 }
 
 func (h *ReleaseHandler) getFinishedEventData(inEventData keptnv2.EventData, status keptnv2.StatusType, result keptnv2.ResultType,
-	message string, gitCommit string) keptnv2.ReleaseFinishedEventData {
+	message string, gitCommit string) *keptnv2.ReleaseFinishedEventData {
 
 	inEventData.Status = status
 	inEventData.Result = result
 	inEventData.Message = message
 
-	return keptnv2.ReleaseFinishedEventData{
+	return &keptnv2.ReleaseFinishedEventData{
 		EventData: inEventData,
 		Release:   keptnv2.ReleaseData{GitCommit: gitCommit},
 	}
 }
 
-func (h *ReleaseHandler) getFinishedEventDataForError(eventData keptnv2.EventData, err error) keptnv2.ReleaseFinishedEventData {
+func (h *ReleaseHandler) getFinishedEventDataForError(eventData keptnv2.EventData, err error) *keptnv2.ReleaseFinishedEventData {
 	return h.getFinishedEventData(eventData, keptnv2.StatusErrored, keptnv2.ResultFailed, err.Error(), "")
 }

@@ -37,7 +37,7 @@ func (h *ActionTriggeredHandler) HandleEvent(ce cloudevents.Event) {
 	err := ce.DataAs(&actionTriggeredEvent)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal data: %v", err)
-		h.handleError(ce.ID(), err, keptnv2.ActionTaskName, h.getFinishedEventDataForError(actionTriggeredEvent.EventData, err))
+		h.handleError(err, h.getFinishedEventDataForError(actionTriggeredEvent.EventData, err))
 		return
 	}
 
@@ -47,7 +47,7 @@ func (h *ActionTriggeredHandler) HandleEvent(ce cloudevents.Event) {
 			actionTriggeredEvent.Service, actionTriggeredEvent.Stage, actionTriggeredEvent.Project))
 		if sendErr := h.sendEvent(ce.ID(), keptnv2.GetStartedEventType(keptnv2.ActionTaskName),
 			h.getStartedEventData(actionTriggeredEvent.EventData)); sendErr != nil {
-			h.handleError(ce.ID(), sendErr, keptnv2.ActionTaskName, h.getFinishedEventDataForError(actionTriggeredEvent.EventData, sendErr))
+			h.handleError(sendErr, h.getFinishedEventDataForError(actionTriggeredEvent.EventData, sendErr))
 			return
 		}
 
@@ -61,7 +61,7 @@ func (h *ActionTriggeredHandler) HandleEvent(ce cloudevents.Event) {
 
 		// Send action.finished event
 		if err := h.sendEvent(ce.ID(), keptnv2.GetFinishedEventType(keptnv2.ActionTaskName), resp); err != nil {
-			h.handleError(ce.ID(), err, keptnv2.ActionTaskName, h.getFinishedEventDataForError(actionTriggeredEvent.EventData, err))
+			h.handleError(err, h.getFinishedEventDataForError(actionTriggeredEvent.EventData, err))
 			return
 		}
 	} else {
@@ -82,11 +82,11 @@ func (h *ActionTriggeredHandler) getStartedEventData(inEventData keptnv2.EventDa
 }
 
 func (h *ActionTriggeredHandler) getFinishedEventDataForSuccess(inEventData keptnv2.EventData,
-	gitCommit string) keptnv2.ActionFinishedEventData {
+	gitCommit string) *keptnv2.ActionFinishedEventData {
 	inEventData.Status = keptnv2.StatusSucceeded
 	inEventData.Result = keptnv2.ResultPass
 	inEventData.Message = "Successfully executed scaling action"
-	return keptnv2.ActionFinishedEventData{
+	return &keptnv2.ActionFinishedEventData{
 		EventData: inEventData,
 		Action: keptnv2.ActionData{
 			GitCommit: gitCommit,
@@ -94,28 +94,28 @@ func (h *ActionTriggeredHandler) getFinishedEventDataForSuccess(inEventData kept
 	}
 }
 
-func (h *ActionTriggeredHandler) getFinishedEventDataForError(eventData keptnv2.EventData, err error) keptnv2.ActionFinishedEventData {
+func (h *ActionTriggeredHandler) getFinishedEventDataForError(eventData keptnv2.EventData, err error) *keptnv2.ActionFinishedEventData {
 
 	eventData.Status = keptnv2.StatusErrored
 	eventData.Result = keptnv2.ResultFailed
 	eventData.Message = err.Error()
-	return keptnv2.ActionFinishedEventData{
+	return &keptnv2.ActionFinishedEventData{
 		EventData: eventData,
 	}
 }
 
 func (h *ActionTriggeredHandler) getFinishedEventData(eventData keptnv2.EventData, status keptnv2.StatusType,
-	result keptnv2.ResultType, msg string) keptnv2.ActionFinishedEventData {
+	result keptnv2.ResultType, msg string) *keptnv2.ActionFinishedEventData {
 
 	eventData.Status = status
 	eventData.Result = result
 	eventData.Message = msg
-	return keptnv2.ActionFinishedEventData{
+	return &keptnv2.ActionFinishedEventData{
 		EventData: eventData,
 	}
 }
 
-func (h *ActionTriggeredHandler) handleScaling(e keptnv2.ActionTriggeredEventData) keptnv2.ActionFinishedEventData {
+func (h *ActionTriggeredHandler) handleScaling(e keptnv2.ActionTriggeredEventData) *keptnv2.ActionFinishedEventData {
 
 	value, ok := e.Action.Value.(string)
 	if !ok {
